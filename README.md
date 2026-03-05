@@ -131,9 +131,10 @@ aioffice/
 │   ├── office_manager.py    # Orchestrator with health monitoring
 │   └── llm_provider.py      # 10 LLM providers with factory pattern
 ├── tools/
-│   ├── web_browser.py       # Web search & scraping
-│   ├── email_sender.py      # SMTP email
-│   └── telegram_bot.py      # Telegram reports
+│   ├── __init__.py          # Tool exports — 40+ functions
+│   ├── web_browser.py       # Web search, scraping, SEO, competitor research, RSS, tech detection
+│   ├── email_sender.py      # SMTP, templates, drip sequences, bulk send, campaigns, analytics
+│   └── telegram_bot.py      # Rich notifications, commands, polling, inline keyboards, alerts
 ├── gui/
 │   ├── templates/index.html # Pixel art office UI
 │   └── static/
@@ -193,9 +194,43 @@ The office **auto-saves state** every cycle:
 
 If the process crashes, the next startup **resumes from the last saved state**.
 
-## 📱 Telegram Reports
+## 📱 Telegram Reports & Commands
 
-At the configured `REPORT_HOUR` (default: 18:00 UTC), all agents generate their daily report and it's sent to your Telegram chat. You can also trigger it manually from the GUI.
+At the configured `REPORT_HOUR` (default: 18:00 UTC), all agents generate their daily report and it's sent to your Telegram chat. Reports include inline keyboard buttons linking back to the dashboard.
+
+**Bot Commands** (when polling is enabled):
+- `/status` — Office status overview
+- `/report` — Force generate daily report
+- `/agents` — List all agents
+- `/health` — Health check
+- `/delegate agent task` — Delegate task to agent
+- `/message agent text` — Message an agent
+- `/help` — Show commands
+
+You can also trigger reports manually from the GUI or API.
+
+## 📧 Email Integration
+
+The email tool supports:
+- **Templates** — welcome, newsletter, cold outreach, follow-up, event invite, daily report
+- **Drip sequences** — multi-step automated email sequences
+- **Bulk send** — personalized emails with `{variable}` substitution
+- **Campaign tracking** — all sends logged with campaign tags and analytics
+- **Daily report delivery** — office reports sent via email (alongside Telegram)
+
+## 🌐 Web Browser Tool
+
+Real web access for agents (no API keys needed):
+- **DuckDuckGo search** — search the web without API keys
+- **Page scraping** — fetch & extract clean text, headings, links, metadata
+- **GitHub integration** — repo info, README, issues (public API)
+- **Competitor research** — automated website + social links extraction
+- **Topic research** — multi-source deep research
+- **SEO analysis** — title, meta, headings, link count, score
+- **Technology detection** — frameworks, analytics, CDN, server stack
+- **RSS feeds** — fetch and parse RSS/Atom feeds
+- **News monitoring** — search latest news across multiple topics
+- **Page cache** — 1-hour cache to avoid redundant fetches
 
 ## 🔧 API Endpoints
 
@@ -259,6 +294,33 @@ At the configured `REPORT_HOUR` (default: 18:00 UTC), all agents generate their 
 |--------|------|-------------|
 | `GET` | `/api/llm/providers` | Supported LLM providers |
 | `GET` | `/api/llm/status` | Active LLM status |
+
+### Tools — Email
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/tools/email/stats` | Email sending statistics |
+| `GET` | `/api/tools/email/log` | Recent send log |
+| `GET` | `/api/tools/email/templates` | Available templates |
+| `POST` | `/api/tools/email/send` | Send an email |
+| `POST` | `/api/tools/email/template` | Send using template |
+
+### Tools — Telegram
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/tools/telegram/stats` | Telegram message stats |
+| `GET` | `/api/tools/telegram/log` | Recent message log |
+| `GET` | `/api/tools/telegram/bot` | Bot info |
+| `POST` | `/api/tools/telegram/send` | Send a message |
+
+### Tools — Web Browser
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/tools/web/stats` | Browsing statistics |
+| `GET` | `/api/tools/web/log` | Research log |
+| `POST` | `/api/tools/web/search` | Search the web |
+| `POST` | `/api/tools/web/fetch` | Fetch & extract page |
+| `POST` | `/api/tools/web/seo` | SEO analysis |
+| `GET` | `/api/tools/stats` | Combined tool stats |
 
 ## 📋 Product Focus
 

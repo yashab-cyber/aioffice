@@ -10,7 +10,8 @@ from agents.registry import AGENT_REGISTRY, register_all, get_all_health
 from core.database import init_db, get_db_stats
 from core.state_manager import state_manager
 from core.communication import message_bus
-from tools.telegram_bot import send_daily_report
+from tools.telegram_bot import send_daily_report, send_cycle_summary, send_alert
+from tools.email_sender import send_daily_report_email
 from config import settings
 
 logger = logging.getLogger("aioffice")
@@ -102,6 +103,20 @@ class OfficeManager:
             t.cancel()
             logger.warning(f"Agent cycle timed out after {settings.agent_cycle_timeout}s")
 
+        # Send cycle summary to Telegram if enabled
+        if settings.telegram_notify_cycles:
+            try:
+                agents_summary = {
+                    aid: {
+                        "completed": a._tasks_completed,
+                        "failed": a._tasks_failed,
+                    }
+                    for aid, a in AGENT_REGISTRY.items()
+                }
+                await send_cycle_summary(self._cycle, agents_summary)
+            except Exception as e:
+                logger.error(f"Failed to send cycle summary: {e}")
+
     async def _run_agent_cycle(self, agent_id: str, agent):
         """Run one agent's task cycle."""
         try:
@@ -150,7 +165,7 @@ class OfficeManager:
         await state_manager.save_office_snapshot(snapshot)
 
     async def _generate_and_send_report(self):
-        """Generate daily reports from all agents and send via Telegram."""
+        """Generate daily reports from all agents and send via Telegram + Email."""
         logger.info("📊 Generating daily report...")
         reports = []
         for agent_id, agent in AGENT_REGISTRY.items():
@@ -168,6 +183,14 @@ class OfficeManager:
         except Exception as e:
             logger.error(f"Failed to send Telegram report: {e}")
 
+        # Send via Email
+        if settings.email_daily_report:
+            try:
+                await send_daily_report_email(reports, to=settings.email_report_to or None)
+                logger.info("📧 Daily report sent via email")
+            except Exception as e:
+                logger.error(f"Failed to send email report: {e}")
+
     async def force_report(self) -> list[str]:
         """Force generate and send report now (for manual trigger)."""
         reports = []
@@ -177,10 +200,16 @@ class OfficeManager:
                 reports.append(report)
             except Exception as e:
                 reports.append(f"**{agent.role} ({agent_id})**: Error — {e}")
+        # Send to Telegram
         try:
             await send_daily_report(reports)
         except Exception as e:
-            logger.error(f"Failed to send report: {e}")
+            logger.error(f"Failed to send Telegram report: {e}")
+        # Send via Email
+        try:
+            await send_daily_report_email(reports, to=settings.email_report_to or None)
+        except Exception as e:
+            logger.error(f"Failed to send email report: {e}")
         return reports
 
     async def shutdown(self):

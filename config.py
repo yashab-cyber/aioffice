@@ -86,6 +86,10 @@ class Settings(BaseSettings):
     # Telegram
     telegram_bot_token: str = Field(default="", alias="TELEGRAM_BOT_TOKEN")
     telegram_chat_id: str = Field(default="", alias="TELEGRAM_CHAT_ID")
+    telegram_notify_cycles: bool = Field(default=False, alias="TELEGRAM_NOTIFY_CYCLES")
+    telegram_notify_alerts: bool = Field(default=True, alias="TELEGRAM_NOTIFY_ALERTS")
+    telegram_polling: bool = Field(default=False, alias="TELEGRAM_POLLING")
+    telegram_polling_interval: int = Field(default=30, alias="TELEGRAM_POLLING_INTERVAL")
 
     # Email
     smtp_host: str = Field(default="smtp.gmail.com", alias="SMTP_HOST")
@@ -93,6 +97,15 @@ class Settings(BaseSettings):
     smtp_user: str = Field(default="", alias="SMTP_USER")
     smtp_password: str = Field(default="", alias="SMTP_PASSWORD")
     email_from: str = Field(default="", alias="EMAIL_FROM")
+    email_daily_report: bool = Field(default=True, alias="EMAIL_DAILY_REPORT")
+    email_report_to: str = Field(default="", alias="EMAIL_REPORT_TO")
+    email_bulk_delay: float = Field(default=1.0, alias="EMAIL_BULK_DELAY")
+
+    # Web Browser
+    web_search_results: int = Field(default=8, alias="WEB_SEARCH_RESULTS")
+    web_page_cache_ttl: int = Field(default=3600, alias="WEB_PAGE_CACHE_TTL")
+    web_request_timeout: float = Field(default=20.0, alias="WEB_REQUEST_TIMEOUT")
+    web_max_page_chars: int = Field(default=8000, alias="WEB_MAX_PAGE_CHARS")
 
     # Product
     product_github_url: str = Field(

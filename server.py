@@ -22,6 +22,9 @@ from core.database import get_db, get_db_stats
 from core.llm_provider import list_providers, build_provider
 from agents.registry import AGENT_REGISTRY, get_registry_info, get_all_health, get_team_members, TEAMS
 from agents.base_agent import BaseAgent
+from tools.email_sender import get_email_stats, get_send_log, list_templates, send_email, send_from_template
+from tools.telegram_bot import get_telegram_stats, get_message_log, get_bot_info, send_message as tg_send
+from tools.web_browser import get_browser_stats, get_research_log, web_search, fetch_page_structured, analyze_seo
 
 logger = logging.getLogger("aioffice")
 
@@ -382,4 +385,136 @@ async def get_config():
             "cross_agent_context": settings.enable_cross_agent_context,
             "memory_cleanup": settings.enable_memory_cleanup,
         },
+    }
+
+
+# ── API: Tools — Email ───────────────────────────────────
+@app.get("/api/tools/email/stats")
+async def email_stats():
+    return get_email_stats()
+
+
+@app.get("/api/tools/email/log")
+async def email_log(limit: int = 50, campaign: str = ""):
+    return get_send_log(limit, campaign)
+
+
+@app.get("/api/tools/email/templates")
+async def email_templates():
+    return list_templates()
+
+
+@app.post("/api/tools/email/send")
+async def api_send_email(request: Request):
+    """Send an email via API."""
+    body = await request.json()
+    to = body.get("to", "")
+    subject = body.get("subject", "")
+    email_body = body.get("body", "")
+    html = body.get("html", False)
+    campaign = body.get("campaign", "api")
+
+    if not to or not subject:
+        return JSONResponse({"error": "to and subject are required"}, status_code=400)
+
+    result = await send_email(to, subject, email_body, html=html, campaign=campaign)
+    return result
+
+
+@app.post("/api/tools/email/template")
+async def api_send_template(request: Request):
+    """Send an email using a named template."""
+    body = await request.json()
+    to = body.get("to", "")
+    template = body.get("template", "")
+    variables = body.get("variables", {})
+
+    if not to or not template:
+        return JSONResponse({"error": "to and template are required"}, status_code=400)
+
+    result = await send_from_template(to, template, variables, campaign=f"api_{template}")
+    return result
+
+
+# ── API: Tools — Telegram ─────────────────────────────────
+@app.get("/api/tools/telegram/stats")
+async def telegram_stats():
+    return get_telegram_stats()
+
+
+@app.get("/api/tools/telegram/log")
+async def telegram_log(limit: int = 50):
+    return get_message_log(limit)
+
+
+@app.get("/api/tools/telegram/bot")
+async def telegram_bot():
+    return await get_bot_info()
+
+
+@app.post("/api/tools/telegram/send")
+async def api_send_telegram(request: Request):
+    """Send a Telegram message via API."""
+    body = await request.json()
+    text = body.get("text", "")
+    chat_id = body.get("chat_id", "")
+    if not text:
+        return JSONResponse({"error": "text is required"}, status_code=400)
+    result = await tg_send(text, chat_id=chat_id)
+    return result
+
+
+# ── API: Tools — Web Browser ─────────────────────────────
+@app.get("/api/tools/web/stats")
+async def web_stats():
+    return get_browser_stats()
+
+
+@app.get("/api/tools/web/log")
+async def web_log(limit: int = 50, action: str = ""):
+    return get_research_log(limit, action)
+
+
+@app.post("/api/tools/web/search")
+async def api_web_search(request: Request):
+    """Search the web via API."""
+    body = await request.json()
+    query = body.get("query", "")
+    num = body.get("num_results", 8)
+    if not query:
+        return JSONResponse({"error": "query is required"}, status_code=400)
+    results = await web_search(query, num)
+    return {"query": query, "results": results}
+
+
+@app.post("/api/tools/web/fetch")
+async def api_web_fetch(request: Request):
+    """Fetch and extract structured data from a URL."""
+    body = await request.json()
+    url = body.get("url", "")
+    if not url:
+        return JSONResponse({"error": "url is required"}, status_code=400)
+    result = await fetch_page_structured(url)
+    return result
+
+
+@app.post("/api/tools/web/seo")
+async def api_seo_analysis(request: Request):
+    """Run SEO analysis on a URL."""
+    body = await request.json()
+    url = body.get("url", "")
+    if not url:
+        return JSONResponse({"error": "url is required"}, status_code=400)
+    result = await analyze_seo(url)
+    return result
+
+
+# ── API: Tools — Combined Stats ──────────────────────────
+@app.get("/api/tools/stats")
+async def all_tool_stats():
+    """Combined statistics for all tools."""
+    return {
+        "email": get_email_stats(),
+        "telegram": get_telegram_stats(),
+        "web_browser": get_browser_stats(),
     }
