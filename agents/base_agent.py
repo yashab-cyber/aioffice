@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import asyncio
 import logging
+import time
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from typing import Any
@@ -30,11 +31,16 @@ class BaseAgent(ABC):
     _llm: LLMProvider | None = None
     _llm_initialized: bool = False
 
+    # Rate limiter state (shared across all agents)
+    _last_llm_call: float = 0.0
+    _llm_lock: asyncio.Lock | None = None
+
     @classmethod
     def init_llm(cls):
         """Initialize the shared LLM provider from settings (call once at startup)."""
         if not cls._llm_initialized:
             cls._llm = build_provider(settings)
+            cls._llm_lock = asyncio.Lock()
             cls._llm_initialized = True
             if cls._llm:
                 logger.info(f"LLM provider: {cls._llm.name} ({getattr(cls._llm, 'model', '?')})")
@@ -49,6 +55,13 @@ class BaseAgent(ABC):
         self._task_queue: asyncio.Queue[dict] = asyncio.Queue()
         self.status = "idle"  # idle | working | meeting | break
         self.position = {"x": 0, "y": 0}  # pixel position in GUI
+        # Performance tracking
+        self._tasks_completed = 0
+        self._tasks_failed = 0
+        self._total_llm_calls = 0
+        self._cycle_count = 0
+        self._last_active: str | None = None
+        self._started_at: str = datetime.now(timezone.utc).isoformat()
 
     # ── abstract ───────────────────────────────────────────
     @abstractmethod
@@ -59,41 +72,74 @@ class BaseAgent(ABC):
     async def plan_day(self) -> list[dict]:
         """Return a list of tasks for today based on product goals."""
 
+    # ── rate limiting ──────────────────────────────────────
+    async def _rate_limit(self):
+        """Enforce minimum delay between LLM calls to avoid rate limits."""
+        min_delay = settings.llm_rate_limit_delay
+        if min_delay <= 0:
+            return
+        if self._llm_lock:
+            async with self._llm_lock:
+                elapsed = time.monotonic() - self.__class__._last_llm_call
+                if elapsed < min_delay:
+                    await asyncio.sleep(min_delay - elapsed)
+                self.__class__._last_llm_call = time.monotonic()
+
     # ── AI call ────────────────────────────────────────────
-    async def think(self, prompt: str, context: str = "") -> str:
+    async def think(
+        self,
+        prompt: str,
+        context: str = "",
+        max_tokens: int | None = None,
+        temperature: float = 0.7,
+        include_memory: bool = True,
+        include_inbox: bool = True,
+    ) -> str:
         """Ask the LLM to reason and return a text response."""
         if not self._llm:
             return f"[{self.agent_id}] AI not configured — set LLM_PROVIDER and its API key"
 
-        memory_ctx = await self.memory.get_context_summary()
-        messages_ctx = await self._format_inbox()
+        # Build context sections
+        sections = []
+        if include_memory:
+            memory_ctx = await self.memory.get_context_summary(max_items=settings.memory_context_items)
+            sections.append(f"## Your Memories\n{memory_ctx}")
+
+        if include_inbox:
+            messages_ctx = await self._format_inbox()
+            sections.append(f"## Unread Messages\n{messages_ctx}")
+
+        if context:
+            sections.append(f"## Additional Context\n{context}")
+
+        sections.append(f"## Current Task\n{prompt}\n\nRespond with a clear, actionable plan or output. Be specific.")
 
         system = self.get_system_prompt()
-        full_prompt = f"""## Your Memories
-{memory_ctx}
+        full_prompt = "\n\n".join(sections)
+        tok = max_tokens or settings.max_tokens_per_call
 
-## Unread Messages
-{messages_ctx}
+        # Retry logic with exponential backoff
+        last_err = None
+        for attempt in range(settings.llm_max_retries):
+            try:
+                await self._rate_limit()
+                self._total_llm_calls += 1
+                return await self._llm.complete(system, full_prompt, temperature=temperature, max_tokens=tok)
+            except Exception as e:
+                last_err = e
+                wait = min(2 ** attempt, 30)
+                logger.warning(f"[{self.agent_id}] LLM attempt {attempt + 1} failed: {e} — retrying in {wait}s")
+                await asyncio.sleep(wait)
 
-## Additional Context
-{context}
+        logger.error(f"[{self.agent_id}] AI call failed after {settings.llm_max_retries} retries: {last_err}")
+        return f"Error: {last_err}"
 
-## Current Task
-{prompt}
-
-Respond with a clear, actionable plan or output. Be specific."""
-
-        try:
-            return await self._llm.complete(system, full_prompt, temperature=0.7, max_tokens=2000)
-        except Exception as e:
-            logger.error(f"[{self.agent_id}] AI call failed ({self._llm.name}): {e}")
-            return f"Error: {e}"
-
-    async def think_json(self, prompt: str, context: str = "") -> dict:
+    async def think_json(self, prompt: str, context: str = "", max_tokens: int | None = None) -> dict:
         """Ask the LLM and parse a JSON response."""
         raw = await self.think(
             prompt + "\n\nRespond ONLY with valid JSON, no markdown fences.",
             context,
+            max_tokens=max_tokens,
         )
         # strip markdown fences if present
         raw = raw.strip()
@@ -121,7 +167,7 @@ Respond with a clear, actionable plan or output. Be specific."""
         return msgs
 
     async def _format_inbox(self) -> str:
-        msgs = await message_bus.get_messages(self.agent_id, unread_only=True, limit=10)
+        msgs = await message_bus.get_messages(self.agent_id, unread_only=True, limit=15)
         if not msgs:
             return "No unread messages."
         lines = []
@@ -129,29 +175,124 @@ Respond with a clear, actionable plan or output. Be specific."""
             lines.append(f"From {m['from_agent']} ({m['channel']}): {m['content']}")
         return "\n".join(lines)
 
+    # ── delegation helpers ─────────────────────────────────
+    async def delegate_task(self, to_agent: str, task_description: str, context: str = ""):
+        """Delegate a task to another agent via message."""
+        payload = json.dumps({
+            "type": "delegated_task",
+            "from": self.agent_id,
+            "description": task_description,
+            "context": context,
+            "delegated_at": datetime.now(timezone.utc).isoformat(),
+        })
+        await message_bus.send(self.agent_id, to_agent, payload, channel="delegation")
+        await self.memory.remember(
+            f"delegated_{int(time.time())}",
+            f"Delegated to {to_agent}: {task_description[:200]}",
+            category="delegations",
+        )
+        logger.info(f"[{self.agent_id}] Delegated task to {to_agent}: {task_description[:80]}")
+
+    async def request_input(self, from_agent: str, question: str) -> None:
+        """Ask another agent for input/advice."""
+        await message_bus.send(self.agent_id, from_agent, f"[INPUT REQUEST] {question}", channel="consultation")
+
+    async def get_agent_status(self, agent_id: str) -> dict | None:
+        """Get another agent's current status."""
+        from agents.registry import AGENT_REGISTRY
+        agent = AGENT_REGISTRY.get(agent_id)
+        if agent:
+            return agent.to_dict()
+        return None
+
+    async def get_team_status(self) -> list[dict]:
+        """Get all agents' current status."""
+        from agents.registry import AGENT_REGISTRY
+        return [a.to_dict() for a in AGENT_REGISTRY.values()]
+
+    # ── intelligence helpers ───────────────────────────────
+    async def _get_inbox_summary(self) -> str:
+        """Get a rich summary of the inbox for planning."""
+        msgs = await message_bus.get_messages(self.agent_id, unread_only=True, limit=20)
+        if not msgs:
+            return "No unread messages."
+        by_channel: dict[str, list] = {}
+        for m in msgs:
+            by_channel.setdefault(m["channel"], []).append(m)
+        lines = []
+        for ch, ch_msgs in by_channel.items():
+            lines.append(f"\n### {ch.upper()} ({len(ch_msgs)} messages)")
+            for m in ch_msgs[:5]:
+                lines.append(f"  - From {m['from_agent']}: {m['content'][:120]}")
+        return "\n".join(lines)
+
+    async def _get_recent_tasks_summary(self, limit: int = 10) -> str:
+        """Get a summary of recent tasks for context."""
+        tasks = await state_manager.get_agent_tasks(self.agent_id, limit=limit)
+        if not tasks:
+            return "No previous tasks."
+        lines = []
+        for t in tasks:
+            icon = "✅" if t["status"] == "done" else "❌" if t["status"] == "failed" else "🔄"
+            lines.append(f"  {icon} [{t['task_type']}] {t['description'][:80]}")
+        return "\n".join(lines)
+
+    async def _get_cross_agent_context(self) -> str:
+        """Get relevant context from other agents' recent activity."""
+        all_tasks = await state_manager.get_all_tasks_today()
+        if not all_tasks:
+            return "No cross-agent activity today."
+        by_agent: dict[str, list] = {}
+        for t in all_tasks:
+            if t["agent_id"] != self.agent_id:
+                by_agent.setdefault(t["agent_id"], []).append(t)
+        lines = []
+        for aid, tasks in by_agent.items():
+            done = sum(1 for t in tasks if t["status"] == "done")
+            lines.append(f"  {aid}: {done}/{len(tasks)} tasks done")
+        return "\n".join(lines) if lines else "No other agent activity today."
+
     # ── task execution ─────────────────────────────────────
     async def execute_task(self, task: dict) -> str:
         """Execute a single task and log it."""
         self.status = "working"
         self._current_task = task.get("description", "Unknown task")
+        self._last_active = datetime.now(timezone.utc).isoformat()
         task_id = await state_manager.log_task(
             self.agent_id, task.get("type", "general"), self._current_task
         )
         logger.info(f"[{self.agent_id}] Starting: {self._current_task}")
 
         try:
-            result = await self._do_task(task)
+            result = await asyncio.wait_for(
+                self._do_task(task),
+                timeout=settings.task_timeout,
+            )
             await state_manager.complete_task(task_id, result, "done")
+            self._tasks_completed += 1
             # Remember what was done
             await self.memory.remember(
                 f"task_{task_id}",
                 json.dumps({"task": task, "result": result[:500]}),
                 category="completed_tasks",
             )
+            # Track performance metrics
+            await state_manager.log_metric(
+                self.agent_id, "task_completed", task.get("type", "general")
+            )
             logger.info(f"[{self.agent_id}] Completed: {self._current_task}")
             return result
+        except asyncio.TimeoutError:
+            await state_manager.complete_task(task_id, "Task timed out", "timeout")
+            self._tasks_failed += 1
+            logger.error(f"[{self.agent_id}] Timeout: {self._current_task}")
+            return "Failed: Task timed out"
         except Exception as e:
             await state_manager.complete_task(task_id, str(e), "failed")
+            self._tasks_failed += 1
+            await state_manager.log_metric(
+                self.agent_id, "task_failed", task.get("type", "general")
+            )
             logger.error(f"[{self.agent_id}] Failed: {self._current_task} — {e}")
             return f"Failed: {e}"
         finally:
@@ -167,7 +308,7 @@ Respond with a clear, actionable plan or output. Be specific."""
 
     # ── daily report ───────────────────────────────────────
     async def generate_report(self) -> str:
-        tasks = await state_manager.get_agent_tasks(self.agent_id, limit=30)
+        tasks = await state_manager.get_agent_tasks(self.agent_id, limit=50)
         today_tasks = [
             t for t in tasks
             if t.get("started_at", "").startswith(datetime.now(timezone.utc).strftime("%Y-%m-%d"))
@@ -175,12 +316,16 @@ Respond with a clear, actionable plan or output. Be specific."""
         if not today_tasks:
             return f"**{self.role} ({self.agent_id})**: No tasks completed today."
 
+        done = [t for t in today_tasks if t["status"] == "done"]
+        failed = [t for t in today_tasks if t["status"] in ("failed", "timeout")]
+
         task_lines = []
         for t in today_tasks:
-            status_icon = "✅" if t["status"] == "done" else "❌"
-            task_lines.append(f"  {status_icon} [{t['task_type']}] {t['description']}")
+            icon = "✅" if t["status"] == "done" else "⏰" if t["status"] == "timeout" else "❌"
+            task_lines.append(f"  {icon} [{t['task_type']}] {t['description']}")
 
-        report = f"**{self.role} ({self.agent_id})**\n" + "\n".join(task_lines)
+        header = f"**{self.role} ({self.agent_id})** — {len(done)} done, {len(failed)} failed"
+        report = header + "\n" + "\n".join(task_lines)
         await state_manager.save_daily_report(self.agent_id, report)
         return report
 
@@ -191,6 +336,11 @@ Respond with a clear, actionable plan or output. Be specific."""
             "status": self.status,
             "current_task": self._current_task,
             "position": self.position,
+            "tasks_completed": self._tasks_completed,
+            "tasks_failed": self._tasks_failed,
+            "total_llm_calls": self._total_llm_calls,
+            "cycle_count": self._cycle_count,
+            "last_active": self._last_active,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         await state_manager.save_agent_state(self.agent_id, state)
@@ -201,8 +351,14 @@ Respond with a clear, actionable plan or output. Be specific."""
             self.status = state.get("status", "idle")
             self.position = state.get("position", self.position)
             self._current_task = state.get("current_task")
+            self._tasks_completed = state.get("tasks_completed", 0)
+            self._tasks_failed = state.get("tasks_failed", 0)
+            self._total_llm_calls = state.get("total_llm_calls", 0)
+            self._cycle_count = state.get("cycle_count", 0)
+            self._last_active = state.get("last_active")
             logger.info(
-                f"[{self.agent_id}] Restored state — was: {self.status}, task: {self._current_task}"
+                f"[{self.agent_id}] Restored state — was: {self.status}, "
+                f"completed: {self._tasks_completed}, failed: {self._tasks_failed}"
             )
             # If there was an in-progress task, remember to resume
             if self._current_task:
@@ -211,6 +367,29 @@ Respond with a clear, actionable plan or output. Be specific."""
                     self._current_task,
                     category="state",
                 )
+
+    # ── health check ───────────────────────────────────────
+    async def health_check(self) -> dict:
+        """Return agent health/readiness info."""
+        mem_count = 0
+        try:
+            all_mem = await self.memory.recall_all()
+            mem_count = sum(len(v) for v in all_mem.values())
+        except Exception:
+            pass
+        return {
+            "agent_id": self.agent_id,
+            "status": self.status,
+            "healthy": True,
+            "llm_available": self._llm is not None,
+            "tasks_completed": self._tasks_completed,
+            "tasks_failed": self._tasks_failed,
+            "total_llm_calls": self._total_llm_calls,
+            "memory_entries": mem_count,
+            "cycle_count": self._cycle_count,
+            "last_active": self._last_active,
+            "uptime_since": self._started_at,
+        }
 
     # ── work loop ──────────────────────────────────────────
     async def work_loop(self):
@@ -226,6 +405,7 @@ Respond with a clear, actionable plan or output. Be specific."""
 
         while self._running:
             try:
+                self._cycle_count += 1
                 # Plan tasks for the day
                 tasks = await self.plan_day()
                 for task in tasks:
@@ -233,12 +413,12 @@ Respond with a clear, actionable plan or output. Be specific."""
                         break
                     await self.execute_task(task)
                     await self.save_state()
-                    await asyncio.sleep(2)  # brief pause between tasks
+                    await asyncio.sleep(settings.task_delay)
 
                 # After all tasks, rest a cycle
                 self.status = "idle"
                 await self.save_state()
-                await asyncio.sleep(30)  # Wait before next planning cycle
+                await asyncio.sleep(settings.cycle_delay)
 
             except asyncio.CancelledError:
                 break
@@ -261,4 +441,9 @@ Respond with a clear, actionable plan or output. Be specific."""
             "current_task": self._current_task,
             "position": self.position,
             "pixel_sprite": self.pixel_sprite,
+            "tasks_completed": self._tasks_completed,
+            "tasks_failed": self._tasks_failed,
+            "total_llm_calls": self._total_llm_calls,
+            "cycle_count": self._cycle_count,
+            "last_active": self._last_active,
         }

@@ -57,6 +57,32 @@ class Settings(BaseSettings):
     custom_model: str = Field(default="local-model", alias="CUSTOM_MODEL")
     custom_api_key: str = Field(default="", alias="CUSTOM_API_KEY")
 
+    # LLM Tuning
+    max_tokens_per_call: int = Field(default=4000, alias="MAX_TOKENS_PER_CALL")
+    llm_max_retries: int = Field(default=3, alias="LLM_MAX_RETRIES")
+    llm_rate_limit_delay: float = Field(default=0.5, alias="LLM_RATE_LIMIT_DELAY")
+    memory_context_items: int = Field(default=30, alias="MEMORY_CONTEXT_ITEMS")
+
+    # Agent Tuning
+    tasks_per_cycle: int = Field(default=8, alias="TASKS_PER_CYCLE")
+    task_timeout: int = Field(default=300, alias="TASK_TIMEOUT")
+    task_delay: float = Field(default=2.0, alias="TASK_DELAY")
+    cycle_delay: float = Field(default=45.0, alias="CYCLE_DELAY")
+    agent_cycle_timeout: int = Field(default=600, alias="AGENT_CYCLE_TIMEOUT")
+
+    # Logging
+    log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+
+    # Feature Flags
+    enable_delegation: bool = Field(default=True, alias="ENABLE_DELEGATION")
+    enable_cross_agent_context: bool = Field(default=True, alias="ENABLE_CROSS_AGENT_CONTEXT")
+    enable_memory_cleanup: bool = Field(default=True, alias="ENABLE_MEMORY_CLEANUP")
+    memory_max_entries: int = Field(default=1000, alias="MEMORY_MAX_ENTRIES")
+
+    # Webhooks
+    webhook_url: str = Field(default="", alias="WEBHOOK_URL")
+    webhook_events: str = Field(default="report,alert", alias="WEBHOOK_EVENTS")
+
     # Telegram
     telegram_bot_token: str = Field(default="", alias="TELEGRAM_BOT_TOKEN")
     telegram_chat_id: str = Field(default="", alias="TELEGRAM_CHAT_ID")
