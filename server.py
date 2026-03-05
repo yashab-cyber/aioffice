@@ -369,22 +369,69 @@ async def get_llm_status():
 # ── API: Configuration (read-only) ───────────────────────
 @app.get("/api/config")
 async def get_config():
-    """Return non-sensitive configuration."""
+    """Return full non-sensitive configuration for the GUI settings panel."""
+    # Agent powers (task types per agent — from design spec)
+    agent_powers = {
+        "CEO": {"count": 10, "types": "standup, okr_review, strategy, performance_review, retrospective, competitive_analysis, coaching, decision, vision, announcement"},
+        "CTO": {"count": 14, "types": "roadmap, architecture, github_optimization, code_quality, devex, it_management, tech_content, security_review, performance, open_source, tech_radar, technical_review, release_management, incident_response"},
+        "CMO": {"count": 13, "types": "brand_strategy, content_creation, campaign, community_growth, channel_outreach, seo, competitive_intel, funnel_review, team_review, partnership_marketing, launch_prep, analytics, content_calendar"},
+        "CXO": {"count": 14, "types": "user_journey, onboarding, user_research, pmf_tracking, feedback_system, community_experience, ux_audit, support_content, persona, sentiment, discord_management, cross_team_ux, nps_design, retention_strategy"},
+        "Marketing": {"count": 16, "types": "social_media, blog, community, email, seo, product_hunt, influencer, ads, visual_brief, growth_hack, analytics, competitive, pr, event, repurpose, brand_voice"},
+        "Sales": {"count": 16, "types": "outreach, cold_email, partnership, enterprise, influencer, conference, pricing, pipeline, competitive, community_bd, sponsorship, referral, customer_success, revenue, alliance, market_expansion"},
+        "HR": {"count": 15, "types": "monitoring, alignment, health_report, one_on_one, conflict_resolution, process_improvement, culture, onboarding, burnout_check, communication_audit, skills_gap, recognition, org_chart, workload_balance, weekly_summary"},
+        "IT": {"count": 16, "types": "cicd, docker, security, monitoring, deployment, infrastructure, database, incident, devex, testing, ssl_dns, performance, compliance, cost, documentation, automation"},
+        "Discord": {"count": 16, "types": "server_setup, onboarding, event_planning, content_creation, bot_design, moderation, engagement, cross_promotion, analytics, ambassador, invite_campaign, partnership, feedback_collection, welcome_flow, challenge, announcement"},
+    }
+
+    # DB stats
+    db_stats = {}
+    try:
+        db_stats = get_db_stats()
+    except Exception:
+        pass
+
     return {
         "product_name": settings.product_name,
         "company_name": settings.company_name,
-        "product_github_url": settings.product_github_url,
-        "product_discord_url": settings.product_discord_url,
+        "github_url": settings.product_github_url,
+        "discord_url": settings.product_discord_url,
         "tasks_per_cycle": settings.tasks_per_cycle,
         "max_tokens_per_call": settings.max_tokens_per_call,
         "task_timeout": settings.task_timeout,
+        "task_delay": getattr(settings, "task_delay", 2),
         "cycle_delay": settings.cycle_delay,
-        "work_hours": f"{settings.work_start_hour}:00 - {settings.work_end_hour}:00 {settings.timezone}",
+        "agent_cycle_timeout": getattr(settings, "agent_cycle_timeout", 300),
+        "max_memory_entries": getattr(settings, "max_memory_entries", 100),
+        "memory_context_items": getattr(settings, "memory_context_items", 5),
+        "max_retries": getattr(settings, "max_retries", 3),
+        "rate_limit_delay": getattr(settings, "rate_limit_delay", 5),
+        "work_hours": f"{settings.work_start_hour}:00 - {settings.work_end_hour}:00",
+        "report_hour": getattr(settings, "report_hour", 18),
+        "timezone": settings.timezone,
+        "llm_provider": settings.llm_provider,
+        "llm_model": getattr(settings, "llm_model", "—"),
+        "llm_configured": bool(getattr(settings, "api_key", None) or getattr(settings, "openai_api_key", None)),
         "features": {
             "delegation": settings.enable_delegation,
             "cross_agent_context": settings.enable_cross_agent_context,
             "memory_cleanup": settings.enable_memory_cleanup,
         },
+        "agent_powers": agent_powers,
+        "tools": {
+            "smtp_host": getattr(settings, "smtp_host", "—"),
+            "email_from": getattr(settings, "email_from", "—"),
+            "email_daily_report": getattr(settings, "email_daily_report", False),
+            "email_bulk_delay": getattr(settings, "email_bulk_delay", 1),
+            "telegram_configured": bool(getattr(settings, "telegram_bot_token", None)),
+            "telegram_notify_cycles": getattr(settings, "telegram_notify_cycles", False),
+            "telegram_notify_alerts": getattr(settings, "telegram_notify_alerts", True),
+            "telegram_polling": getattr(settings, "telegram_polling", False),
+            "web_search_results": getattr(settings, "web_search_results", 5),
+            "web_cache_ttl": getattr(settings, "web_page_cache_ttl", 3600),
+            "web_request_timeout": getattr(settings, "web_request_timeout", 15),
+            "web_max_page_chars": getattr(settings, "web_max_page_chars", 5000),
+        },
+        "db_stats": db_stats,
     }
 
 

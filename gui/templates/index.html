@@ -15,6 +15,12 @@
         <h1>🏢 AI OFFICE</h1>
         <span id="status-pill" class="status-pill">LOADING</span>
         <span style="font-size:7px;color:var(--text-dim)">{{ settings.product_name }} HQ</span>
+        <div class="topbar-tools">
+            <button class="tool-tab active" data-tab="office" onclick="switchTab('office')">🏢 Office</button>
+            <button class="tool-tab" data-tab="email" onclick="switchTab('email')">📧 Email</button>
+            <button class="tool-tab" data-tab="telegram" onclick="switchTab('telegram')">📱 Telegram</button>
+            <button class="tool-tab" data-tab="web" onclick="switchTab('web')">🌐 Browser</button>
+        </div>
         <div class="topbar-right">
             <button class="btn primary" onclick="generateReport()">📊 REPORT</button>
             <button class="btn" onclick="restartOffice()">🔄 RESTART</button>
@@ -376,18 +382,142 @@
             <div class="cooler-body"></div>
         </div>
 
-        <!-- Coffee Machine -->
-        <div class="coffee-machine" style="top:310px;left:80px;">
-            <div class="machine-top"></div>
-            <div class="machine-body"></div>
-            <div class="coffee-cup"></div>
-            <div class="steam">
+        <!-- ☕ Coffee Shop — Click to open Settings -->
+        <div class="coffee-shop" id="coffee-shop" onclick="openSettings()" title="☕ Click to configure AI Office">
+            <div class="shop-sign">
+                <span class="sign-text">☕ CAFE</span>
+                <div class="sign-glow"></div>
+            </div>
+            <div class="shop-awning"></div>
+            <div class="shop-body">
+                <div class="shop-window">
+                    <div class="shop-counter"></div>
+                    <div class="shop-cups">
+                        <div class="mini-cup"></div>
+                        <div class="mini-cup"></div>
+                        <div class="mini-cup"></div>
+                    </div>
+                </div>
+                <div class="shop-door"></div>
+            </div>
+            <div class="shop-steam">
                 <div class="steam-line"></div>
                 <div class="steam-line"></div>
                 <div class="steam-line"></div>
             </div>
+            <div class="shop-label">⚙ SETTINGS</div>
         </div>
 
+        <!-- Old coffee machine removed — replaced by coffee shop -->
+
+    </div>
+
+    <!-- ─── Tools Dashboard Panels ─────────────────────── -->
+    <div id="tools-panel" class="tools-panel" style="display:none;">
+        <!-- Email Dashboard -->
+        <div id="tab-email" class="tool-dashboard" style="display:none;">
+            <div class="dash-header">📧 Email Tool Dashboard</div>
+            <div class="dash-grid">
+                <div class="dash-card">
+                    <div class="dash-card-title">Status</div>
+                    <div id="email-status" class="dash-card-value">—</div>
+                </div>
+                <div class="dash-card">
+                    <div class="dash-card-title">Sent</div>
+                    <div id="email-sent" class="dash-card-value num-glow-green">0</div>
+                </div>
+                <div class="dash-card">
+                    <div class="dash-card-title">Failed</div>
+                    <div id="email-failed" class="dash-card-value num-glow-red">0</div>
+                </div>
+                <div class="dash-card">
+                    <div class="dash-card-title">Templates</div>
+                    <div id="email-templates" class="dash-card-value">—</div>
+                </div>
+            </div>
+            <div class="dash-section">
+                <div class="dash-section-title">📬 Recent Sends</div>
+                <div id="email-log" class="dash-log"></div>
+            </div>
+            <div class="dash-section">
+                <div class="dash-section-title">📝 Quick Send</div>
+                <div class="dash-form">
+                    <input type="text" id="email-to" placeholder="Recipient email" class="dash-input">
+                    <input type="text" id="email-subject" placeholder="Subject" class="dash-input">
+                    <textarea id="email-body" placeholder="Message body..." class="dash-textarea"></textarea>
+                    <button class="btn primary" onclick="sendQuickEmail()">📧 SEND EMAIL</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Telegram Dashboard -->
+        <div id="tab-telegram" class="tool-dashboard" style="display:none;">
+            <div class="dash-header">📱 Telegram Bot Dashboard</div>
+            <div class="dash-grid">
+                <div class="dash-card">
+                    <div class="dash-card-title">Status</div>
+                    <div id="tg-status" class="dash-card-value">—</div>
+                </div>
+                <div class="dash-card">
+                    <div class="dash-card-title">Sent</div>
+                    <div id="tg-sent" class="dash-card-value num-glow-green">0</div>
+                </div>
+                <div class="dash-card">
+                    <div class="dash-card-title">Failed</div>
+                    <div id="tg-failed" class="dash-card-value num-glow-red">0</div>
+                </div>
+                <div class="dash-card">
+                    <div class="dash-card-title">Bot</div>
+                    <div id="tg-bot" class="dash-card-value">—</div>
+                </div>
+            </div>
+            <div class="dash-section">
+                <div class="dash-section-title">💬 Recent Messages</div>
+                <div id="tg-log" class="dash-log"></div>
+            </div>
+            <div class="dash-section">
+                <div class="dash-section-title">📤 Quick Message</div>
+                <div class="dash-form">
+                    <textarea id="tg-text" placeholder="Telegram message..." class="dash-textarea"></textarea>
+                    <button class="btn primary" onclick="sendQuickTelegram()">📱 SEND MESSAGE</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Web Browser Dashboard -->
+        <div id="tab-web" class="tool-dashboard" style="display:none;">
+            <div class="dash-header">🌐 Web Browser Dashboard</div>
+            <div class="dash-grid">
+                <div class="dash-card">
+                    <div class="dash-card-title">Searches</div>
+                    <div id="web-searches" class="dash-card-value num-glow-blue">0</div>
+                </div>
+                <div class="dash-card">
+                    <div class="dash-card-title">Pages Fetched</div>
+                    <div id="web-fetched" class="dash-card-value num-glow-blue">0</div>
+                </div>
+                <div class="dash-card">
+                    <div class="dash-card-title">Cached</div>
+                    <div id="web-cached" class="dash-card-value">0</div>
+                </div>
+                <div class="dash-card">
+                    <div class="dash-card-title">Total Results</div>
+                    <div id="web-results" class="dash-card-value">0</div>
+                </div>
+            </div>
+            <div class="dash-section">
+                <div class="dash-section-title">🔍 Research Log</div>
+                <div id="web-log" class="dash-log"></div>
+            </div>
+            <div class="dash-section">
+                <div class="dash-section-title">🔎 Quick Search</div>
+                <div class="dash-form">
+                    <input type="text" id="web-query" placeholder="Search the web..." class="dash-input">
+                    <button class="btn primary" onclick="doWebSearch()">🔍 SEARCH</button>
+                    <div id="web-results-panel" class="dash-log" style="margin-top:8px;display:none;"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- ─── Bottom Panel ───────────────────────────────── -->
@@ -398,23 +528,25 @@
             <div class="panel-title">👤 AGENT DETAIL</div>
 
             {% for agent_id, agent_data in [
-                ("ceo", {"role": "Chief Executive Officer", "desc": "Strategy & Vision"}),
-                ("cto", {"role": "Chief Technology Officer", "desc": "Tech & GitHub"}),
-                ("cmo", {"role": "Chief Marketing Officer", "desc": "Marketing Strategy"}),
-                ("cxo", {"role": "Chief Experience Officer", "desc": "UX & Community"}),
-                ("marketing", {"role": "Marketing Team", "desc": "Content & Social"}),
-                ("sales", {"role": "Sales Team", "desc": "Outreach & BD"}),
-                ("hr", {"role": "HR Manager", "desc": "Team Monitoring"}),
-                ("it", {"role": "IT Team", "desc": "Infrastructure & DevOps"}),
-                ("discord", {"role": "Discord Team", "desc": "Community Growth"})
+                ("ceo", {"role": "Chief Executive Officer", "desc": "Strategy & Vision", "tasks": "10 task types: standup, okr_review, strategy, performance_review, retrospective, competitive_analysis, coaching, decision, vision, announcement"}),
+                ("cto", {"role": "Chief Technology Officer", "desc": "Tech & GitHub", "tasks": "14 task types: roadmap, architecture, github_optimization, code_quality, devex, it_management, tech_content, security_review, performance, open_source, tech_radar, technical_review, release_management, incident_response"}),
+                ("cmo", {"role": "Chief Marketing Officer", "desc": "Marketing Strategy", "tasks": "13 task types: brand_strategy, content_creation, campaign, community_growth, channel_outreach, seo, competitive_intel, funnel_review, team_review, partnership_marketing, launch_prep, analytics, content_calendar"}),
+                ("cxo", {"role": "Chief Experience Officer", "desc": "UX & Community", "tasks": "14 task types: user_journey, onboarding, user_research, pmf_tracking, feedback_system, community_experience, ux_audit, support_content, persona, sentiment, discord_management, cross_team_ux, nps_design, retention_strategy"}),
+                ("marketing", {"role": "Marketing Team", "desc": "Content & Social", "tasks": "16 task types: social_media, blog, community, email, seo, product_hunt, influencer, ads, visual_brief, growth_hack, analytics, competitive, pr, event, repurpose, brand_voice"}),
+                ("sales", {"role": "Sales Team", "desc": "Outreach & BD", "tasks": "16 task types: outreach, cold_email, partnership, enterprise, influencer, conference, pricing, pipeline, competitive, community_bd, sponsorship, referral, customer_success, revenue, alliance, market_expansion"}),
+                ("hr", {"role": "HR Manager", "desc": "Team Monitoring", "tasks": "15 task types: monitoring, alignment, health_report, one_on_one, conflict_resolution, process_improvement, culture, onboarding, burnout_check, communication_audit, skills_gap, recognition, org_chart, workload_balance, weekly_summary"}),
+                ("it", {"role": "IT Team", "desc": "Infrastructure & DevOps", "tasks": "16 task types: cicd, docker, security, monitoring, deployment, infrastructure, database, incident, devex, testing, ssl_dns, performance, compliance, cost, documentation, automation"}),
+                ("discord", {"role": "Discord Team", "desc": "Community Growth", "tasks": "16 task types: server_setup, onboarding, event_planning, content_creation, bot_design, moderation, engagement, cross_promotion, analytics, ambassador, invite_campaign, partnership, feedback_collection, welcome_flow, challenge, announcement"})
             ] %}
             <div class="agent-detail" id="detail-{{ agent_id }}">
                 <div class="agent-info">
                     <strong>{{ agent_data.role }}</strong><br>
-                    {{ agent_data.desc }}<br><br>
+                    {{ agent_data.desc }}<br>
+                    <div class="agent-tasks-info">🧠 {{ agent_data.tasks }}</div>
+                    <div class="agent-perf" id="perf-{{ agent_id }}"></div>
                     <strong>Memory:</strong>
-                    <div id="memory-content" style="max-height:80px;overflow-y:auto;margin-top:4px;">
-                        <em style="color:#666">Select agent to view</em>
+                    <div id="memory-{{ agent_id }}" class="memory-content">
+                        <em style="color:#666">Click agent to load</em>
                     </div>
                 </div>
             </div>
@@ -455,6 +587,218 @@
 
     </div>
 
+</div>
+
+<!-- ─── Settings Modal (Coffee Shop) ───────────────────── -->
+<div id="settings-modal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeSettings()">
+    <div class="modal">
+        <div class="modal-header">
+            <span>☕ AI Office Settings</span>
+            <button class="modal-close" onclick="closeSettings()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="settings-tabs">
+                <button class="stab active" onclick="switchSettingsTab('general')">🏢 General</button>
+                <button class="stab" onclick="switchSettingsTab('llm')">🧠 LLM</button>
+                <button class="stab" onclick="switchSettingsTab('agents')">🤖 Agents</button>
+                <button class="stab" onclick="switchSettingsTab('tools')">🔧 Tools</button>
+                <button class="stab" onclick="switchSettingsTab('schedule')">📅 Schedule</button>
+            </div>
+            <!-- General Settings -->
+            <div id="stab-general" class="settings-panel active">
+                <div class="setting-group">
+                    <div class="setting-group-title">Product Info</div>
+                    <div class="setting-row">
+                        <span class="setting-label">Company</span>
+                        <span class="setting-value" id="s-company">—</span>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Product</span>
+                        <span class="setting-value" id="s-product">—</span>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">GitHub</span>
+                        <span class="setting-value" id="s-github">—</span>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Discord</span>
+                        <span class="setting-value" id="s-discord">—</span>
+                    </div>
+                </div>
+                <div class="setting-group">
+                    <div class="setting-group-title">Features</div>
+                    <div class="setting-row">
+                        <span class="setting-label">Delegation</span>
+                        <span class="setting-value" id="s-delegation">—</span>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Cross-Agent Context</span>
+                        <span class="setting-value" id="s-cross-agent">—</span>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Memory Cleanup</span>
+                        <span class="setting-value" id="s-mem-cleanup">—</span>
+                    </div>
+                </div>
+            </div>
+            <!-- LLM Settings -->
+            <div id="stab-llm" class="settings-panel">
+                <div class="setting-group">
+                    <div class="setting-group-title">LLM Provider</div>
+                    <div class="setting-row">
+                        <span class="setting-label">Provider</span>
+                        <span class="setting-value" id="s-llm-provider">—</span>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Model</span>
+                        <span class="setting-value" id="s-llm-model">—</span>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Status</span>
+                        <span class="setting-value" id="s-llm-status">—</span>
+                    </div>
+                </div>
+                <div class="setting-group">
+                    <div class="setting-group-title">Tuning</div>
+                    <div class="setting-row">
+                        <span class="setting-label">Max Tokens</span>
+                        <span class="setting-value" id="s-max-tokens">—</span>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Retries</span>
+                        <span class="setting-value" id="s-retries">—</span>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Rate Limit Delay</span>
+                        <span class="setting-value" id="s-rate-delay">—</span>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Memory Context Items</span>
+                        <span class="setting-value" id="s-mem-items">—</span>
+                    </div>
+                </div>
+            </div>
+            <!-- Agent Settings -->
+            <div id="stab-agents" class="settings-panel">
+                <div class="setting-group">
+                    <div class="setting-group-title">Agent Tuning</div>
+                    <div class="setting-row">
+                        <span class="setting-label">Tasks Per Cycle</span>
+                        <span class="setting-value" id="s-tasks-cycle">—</span>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Task Timeout</span>
+                        <span class="setting-value" id="s-task-timeout">—</span>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Task Delay</span>
+                        <span class="setting-value" id="s-task-delay">—</span>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Cycle Delay</span>
+                        <span class="setting-value" id="s-cycle-delay">—</span>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Agent Cycle Timeout</span>
+                        <span class="setting-value" id="s-agent-timeout">—</span>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Max Memory Entries</span>
+                        <span class="setting-value" id="s-mem-max">—</span>
+                    </div>
+                </div>
+                <div class="setting-group">
+                    <div class="setting-group-title">Agent Powers (Task Types)</div>
+                    <div id="s-agent-powers" class="agent-powers-list"></div>
+                </div>
+            </div>
+            <!-- Tools Settings -->
+            <div id="stab-tools" class="settings-panel">
+                <div class="setting-group">
+                    <div class="setting-group-title">📧 Email</div>
+                    <div class="setting-row">
+                        <span class="setting-label">SMTP Host</span>
+                        <span class="setting-value" id="s-smtp-host">—</span>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">From</span>
+                        <span class="setting-value" id="s-email-from">—</span>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Daily Report</span>
+                        <span class="setting-value" id="s-email-report">—</span>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Bulk Delay</span>
+                        <span class="setting-value" id="s-email-delay">—</span>
+                    </div>
+                </div>
+                <div class="setting-group">
+                    <div class="setting-group-title">📱 Telegram</div>
+                    <div class="setting-row">
+                        <span class="setting-label">Configured</span>
+                        <span class="setting-value" id="s-tg-configured">—</span>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Cycle Notifications</span>
+                        <span class="setting-value" id="s-tg-cycles">—</span>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Alert Notifications</span>
+                        <span class="setting-value" id="s-tg-alerts">—</span>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Polling</span>
+                        <span class="setting-value" id="s-tg-polling">—</span>
+                    </div>
+                </div>
+                <div class="setting-group">
+                    <div class="setting-group-title">🌐 Web Browser</div>
+                    <div class="setting-row">
+                        <span class="setting-label">Search Results</span>
+                        <span class="setting-value" id="s-web-results">—</span>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Cache TTL</span>
+                        <span class="setting-value" id="s-web-cache">—</span>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Request Timeout</span>
+                        <span class="setting-value" id="s-web-timeout">—</span>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Max Page Chars</span>
+                        <span class="setting-value" id="s-web-chars">—</span>
+                    </div>
+                </div>
+            </div>
+            <!-- Schedule Settings -->
+            <div id="stab-schedule" class="settings-panel">
+                <div class="setting-group">
+                    <div class="setting-group-title">Work Schedule</div>
+                    <div class="setting-row">
+                        <span class="setting-label">Work Hours</span>
+                        <span class="setting-value" id="s-work-hours">—</span>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Report Hour</span>
+                        <span class="setting-value" id="s-report-hour">—</span>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Timezone</span>
+                        <span class="setting-value" id="s-timezone">—</span>
+                    </div>
+                </div>
+                <div class="setting-group">
+                    <div class="setting-group-title">Database</div>
+                    <div id="s-db-stats" class="db-stats-grid"></div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <span style="font-size:6px;color:var(--text-dim)">☕ Settings are read from .env — Edit .env file and restart to apply changes</span>
+        </div>
+    </div>
 </div>
 
 <!-- Toast notifications -->
