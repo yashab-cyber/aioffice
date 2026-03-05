@@ -92,16 +92,31 @@ class OfficeManager:
 
     async def _run_work_cycle(self):
         """Run one work cycle — each agent plans and executes tasks."""
-        tasks = []
-        for agent_id, agent in AGENT_REGISTRY.items():
-            task = asyncio.create_task(self._run_agent_cycle(agent_id, agent))
-            tasks.append(task)
+        # For local/single-threaded providers (ollama, custom), run agents sequentially
+        # to avoid overwhelming the LLM with concurrent requests
+        sequential_providers = ("ollama", "custom")
+        if settings.llm_provider in sequential_providers:
+            for agent_id, agent in AGENT_REGISTRY.items():
+                if not self._running:
+                    break
+                try:
+                    await asyncio.wait_for(
+                        self._run_agent_cycle(agent_id, agent),
+                        timeout=settings.agent_cycle_timeout,
+                    )
+                except asyncio.TimeoutError:
+                    logger.warning(f"[{agent_id}] Agent cycle timed out after {settings.agent_cycle_timeout}s")
+        else:
+            tasks = []
+            for agent_id, agent in AGENT_REGISTRY.items():
+                task = asyncio.create_task(self._run_agent_cycle(agent_id, agent))
+                tasks.append(task)
 
-        # Wait for all agents to complete their cycle (with timeout)
-        done, pending = await asyncio.wait(tasks, timeout=settings.agent_cycle_timeout)
-        for t in pending:
-            t.cancel()
-            logger.warning(f"Agent cycle timed out after {settings.agent_cycle_timeout}s")
+            # Wait for all agents to complete their cycle (with timeout)
+            done, pending = await asyncio.wait(tasks, timeout=settings.agent_cycle_timeout)
+            for t in pending:
+                t.cancel()
+                logger.warning(f"Agent cycle timed out after {settings.agent_cycle_timeout}s")
 
         # Send cycle summary to Telegram if enabled
         if settings.telegram_notify_cycles:

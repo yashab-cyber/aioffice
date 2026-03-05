@@ -8,7 +8,7 @@ import logging
 from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request, Query
+from fastapi import FastAPI, Request, Query, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -285,9 +285,9 @@ async def get_report_dates(limit: int = 30):
 
 
 @app.post("/api/reports/generate")
-async def force_generate_report():
-    reports = await office_manager.force_report()
-    return {"reports": reports}
+async def force_generate_report(background_tasks: BackgroundTasks):
+    background_tasks.add_task(office_manager.force_report)
+    return {"status": "ok", "message": "Report generation started — will be sent to Telegram and email when ready."}
 
 
 # ── API: Director Commands ────────────────────────────────
