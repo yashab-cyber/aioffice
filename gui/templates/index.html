@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Office — {{ settings.company_name }}</title>
+    <link rel="stylesheet" href="/static/css/office.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>🏢</text></svg>">
+</head>
+<body>
+<div id="app">
+
+    <!-- ─── Top Bar ────────────────────────────────────── -->
+    <div id="topbar">
+        <h1>🏢 AI OFFICE</h1>
+        <span id="status-pill" class="status-pill">LOADING</span>
+        <span style="font-size:7px;color:var(--text-dim)">{{ settings.product_name }} HQ</span>
+        <div class="topbar-right">
+            <button class="btn primary" onclick="generateReport()">📊 REPORT</button>
+            <button class="btn" onclick="restartOffice()">🔄 RESTART</button>
+            <button class="btn" onclick="stopOffice()">⏹ STOP</button>
+        </div>
+    </div>
+
+    <!-- ─── Office View (Pixel Art) ────────────────────── -->
+    <div id="office-view">
+
+        <!-- Ambient light overlay -->
+        <div class="ambient-light"></div>
+        <!-- Floating particles -->
+        <div id="particles"></div>
+
+        <!-- ─── Wall Decorations ──────────────────────── -->
+        <!-- Window with night sky -->
+        <div class="window" style="top:10px;left:65px;">
+            <div class="stars">
+                <div class="star" style="top:8px;left:10px;animation-delay:0s"></div>
+                <div class="star" style="top:15px;left:30px;animation-delay:1s"></div>
+                <div class="star" style="top:5px;left:45px;animation-delay:0.5s"></div>
+                <div class="star" style="top:25px;left:15px;animation-delay:1.5s"></div>
+                <div class="star" style="top:30px;left:50px;animation-delay:2s"></div>
+            </div>
+            <div class="moon"></div>
+        </div>
+
+        <!-- Wall Clock -->
+        <div class="wall-clock" style="top:15px;left:160px;">
+            <div class="clock-face" id="wall-clock-time">12:00</div>
+        </div>
+
+        <!-- Whiteboards on wall -->
+        <div class="whiteboard" style="top:10px;left:250px;">
+            <div style="font-size:5px;color:var(--accent);margin-bottom:2px">📋 {{ settings.company_name }} — MISSION</div>
+            <div style="font-size:4px;color:#555">
+                ✦ Grow HackBot community<br>
+                ✦ Get 100 GitHub stars<br>
+                ✦ Build Discord to 50 members<br>
+                ✦ Launch Product Hunt campaign<br>
+                ✦ Partner with security influencers
+            </div>
+        </div>
+
+        <div class="whiteboard" style="top:10px;left:500px;">
+            <div style="font-size:5px;color:var(--accent2);margin-bottom:2px">📈 KPI TRACKER</div>
+            <div style="font-size:4px;color:#555" id="kpi-board">
+                GitHub ★: 0 → 100<br>
+                Discord: 0 → 50<br>
+                Visitors: 0 → 1000<br>
+                Partners: 0 → 5
+            </div>
+        </div>
+
+        <!-- Bookshelf on wall -->
+        <div class="bookshelf" style="top:18px;left:660px;">
+            <div class="shelf">
+                <div class="books">
+                    <div class="book" style="height:12px;background:#e74c3c"></div>
+                    <div class="book" style="height:14px;background:#3498db"></div>
+                    <div class="book" style="height:11px;background:#2ecc71"></div>
+                    <div class="book" style="height:13px;background:#f39c12"></div>
+                    <div class="book" style="height:10px;background:#9b59b6"></div>
+                    <div class="book" style="height:14px;background:#1abc9c"></div>
+                    <div class="book" style="height:12px;background:#e67e22"></div>
+                </div>
+            </div>
+            <div class="shelf" style="margin-top:8px">
+                <div class="books">
+                    <div class="book" style="height:11px;background:#c0392b"></div>
+                    <div class="book" style="height:13px;background:#2980b9"></div>
+                    <div class="book" style="height:12px;background:#27ae60"></div>
+                    <div class="book" style="height:10px;background:#d35400"></div>
+                    <div class="book" style="height:14px;background:#8e44ad"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ceiling Lights -->
+        <div class="ceiling-light" style="left:200px;">
+            <div class="fixture"></div>
+            <div class="light-cone"></div>
+        </div>
+        <div class="ceiling-light" style="left:400px;">
+            <div class="fixture"></div>
+            <div class="light-cone"></div>
+        </div>
+        <div class="ceiling-light" style="left:600px;">
+            <div class="fixture"></div>
+            <div class="light-cone"></div>
+        </div>
+
+        <!-- Carpets -->
+        <div class="carpet" style="top:120px;left:160px;width:540px;height:200px;background:radial-gradient(ellipse,rgba(100,60,150,0.12),transparent);"></div>
+        <div class="carpet" style="top:340px;left:320px;width:200px;height:140px;background:radial-gradient(ellipse,rgba(60,100,150,0.1),transparent);"></div>
+
+        <!-- ─── CEO Desk ──────────────────────────────── -->
+        <div class="desk" style="top:130px;left:370px;">
+            <div class="monitor">
+                <div class="monitor-screen active">
+                    <div class="scanlines"></div>
+                    <div class="screen-text">STRATEGY<br>PLANNING</div>
+                </div>
+                <div class="monitor-stand"></div>
+            </div>
+            <div class="desk-surface"></div>
+            <div class="chair"></div>
+        </div>
+        <div class="agent-sprite sprite-ceo" id="agent-ceo" style="top:108px;left:395px;">
+            <div class="agent-status-dot idle"></div>
+            <div class="speech-bubble">Ready to lead</div>
+            <div class="pixel-char">
+                <div class="hair"></div>
+                <div class="head"></div>
+                <div class="body"></div>
+                <div class="arm-l"></div>
+                <div class="arm-r"></div>
+                <div class="leg-l"></div>
+                <div class="leg-r"></div>
+            </div>
+            <div class="agent-label">CEO</div>
+        </div>
+
+        <!-- ─── CTO Desk ──────────────────────────────── -->
+        <div class="desk" style="top:130px;left:170px;">
+            <div class="monitor">
+                <div class="monitor-screen active">
+                    <div class="scanlines"></div>
+                    <div class="screen-text">git push<br>origin main</div>
+                </div>
+                <div class="monitor-stand"></div>
+            </div>
+            <div class="desk-surface"></div>
+            <div class="chair"></div>
+        </div>
+        <div class="agent-sprite sprite-cto" id="agent-cto" style="top:108px;left:195px;">
+            <div class="agent-status-dot idle"></div>
+            <div class="speech-bubble">Coding...</div>
+            <div class="pixel-char">
+                <div class="hair"></div>
+                <div class="head"></div>
+                <div class="body"></div>
+                <div class="arm-l"></div>
+                <div class="arm-r"></div>
+                <div class="leg-l"></div>
+                <div class="leg-r"></div>
+            </div>
+            <div class="agent-label">CTO</div>
+        </div>
+
+        <!-- ─── CMO Desk ──────────────────────────────── -->
+        <div class="desk" style="top:130px;left:570px;">
+            <div class="monitor">
+                <div class="monitor-screen active">
+                    <div class="scanlines"></div>
+                    <div class="screen-text">MARKETING<br>CAMPAIGN</div>
+                </div>
+                <div class="monitor-stand"></div>
+            </div>
+            <div class="desk-surface"></div>
+            <div class="chair"></div>
+        </div>
+        <div class="agent-sprite sprite-cmo" id="agent-cmo" style="top:108px;left:595px;">
+            <div class="agent-status-dot idle"></div>
+            <div class="speech-bubble">Planning campaigns</div>
+            <div class="pixel-char">
+                <div class="hair"></div>
+                <div class="head"></div>
+                <div class="body"></div>
+                <div class="arm-l"></div>
+                <div class="arm-r"></div>
+                <div class="leg-l"></div>
+                <div class="leg-r"></div>
+            </div>
+            <div class="agent-label">CMO</div>
+        </div>
+
+        <!-- ─── CXO Desk ──────────────────────────────── -->
+        <div class="desk" style="top:260px;left:370px;">
+            <div class="monitor">
+                <div class="monitor-screen active">
+                    <div class="scanlines"></div>
+                    <div class="screen-text">USER<br>FEEDBACK</div>
+                </div>
+                <div class="monitor-stand"></div>
+            </div>
+            <div class="desk-surface"></div>
+            <div class="chair"></div>
+        </div>
+        <div class="agent-sprite sprite-cxo" id="agent-cxo" style="top:238px;left:395px;">
+            <div class="agent-status-dot idle"></div>
+            <div class="speech-bubble">UX review</div>
+            <div class="pixel-char">
+                <div class="hair"></div>
+                <div class="head"></div>
+                <div class="body"></div>
+                <div class="arm-l"></div>
+                <div class="arm-r"></div>
+                <div class="leg-l"></div>
+                <div class="leg-r"></div>
+            </div>
+            <div class="agent-label">CXO</div>
+        </div>
+
+        <!-- ─── Marketing Team Desk ───────────────────── -->
+        <div class="desk" style="top:260px;left:570px;">
+            <div class="monitor">
+                <div class="monitor-screen active">
+                    <div class="scanlines"></div>
+                    <div class="screen-text">SOCIAL<br>MEDIA</div>
+                </div>
+                <div class="monitor-stand"></div>
+            </div>
+            <div class="desk-surface"></div>
+            <div class="chair"></div>
+        </div>
+        <div class="agent-sprite sprite-marketing" id="agent-marketing" style="top:238px;left:595px;">
+            <div class="agent-status-dot idle"></div>
+            <div class="speech-bubble">Writing content</div>
+            <div class="pixel-char">
+                <div class="hair"></div>
+                <div class="head"></div>
+                <div class="body"></div>
+                <div class="arm-l"></div>
+                <div class="arm-r"></div>
+                <div class="leg-l"></div>
+                <div class="leg-r"></div>
+            </div>
+            <div class="agent-label">MKTG</div>
+        </div>
+
+        <!-- ─── Sales Team Desk ───────────────────────── -->
+        <div class="desk" style="top:260px;left:170px;">
+            <div class="monitor">
+                <div class="monitor-screen active">
+                    <div class="scanlines"></div>
+                    <div class="screen-text">OUTREACH<br>EMAILS</div>
+                </div>
+                <div class="monitor-stand"></div>
+            </div>
+            <div class="desk-surface"></div>
+            <div class="chair"></div>
+        </div>
+        <div class="agent-sprite sprite-sales" id="agent-sales" style="top:238px;left:195px;">
+            <div class="agent-status-dot idle"></div>
+            <div class="speech-bubble">Finding leads</div>
+            <div class="pixel-char">
+                <div class="hair"></div>
+                <div class="head"></div>
+                <div class="body"></div>
+                <div class="arm-l"></div>
+                <div class="arm-r"></div>
+                <div class="leg-l"></div>
+                <div class="leg-r"></div>
+            </div>
+            <div class="agent-label">SALES</div>
+        </div>
+
+        <!-- ─── HR Desk (Center Bottom) ───────────────── -->
+        <div class="desk" style="top:380px;left:370px;">
+            <div class="monitor">
+                <div class="monitor-screen active">
+                    <div class="scanlines"></div>
+                    <div class="screen-text">MONITOR<br>AGENTS</div>
+                </div>
+                <div class="monitor-stand"></div>
+            </div>
+            <div class="desk-surface"></div>
+            <div class="chair"></div>
+        </div>
+        <div class="agent-sprite sprite-hr" id="agent-hr" style="top:358px;left:395px;">
+            <div class="agent-status-dot idle"></div>
+            <div class="speech-bubble">Monitoring team</div>
+            <div class="pixel-char">
+                <div class="hair"></div>
+                <div class="head"></div>
+                <div class="body"></div>
+                <div class="arm-l"></div>
+                <div class="arm-r"></div>
+                <div class="leg-l"></div>
+                <div class="leg-r"></div>
+            </div>
+            <div class="agent-label">HR</div>
+        </div>
+
+        <!-- ─── IT Team Desk ─────────────────────────── -->
+        <div class="desk" style="top:380px;left:170px;">
+            <div class="monitor">
+                <div class="monitor-screen active">
+                    <div class="scanlines"></div>
+                    <div class="screen-text">INFRA<br>DEVOPS</div>
+                </div>
+                <div class="monitor-stand"></div>
+            </div>
+            <div class="desk-surface"></div>
+            <div class="chair"></div>
+        </div>
+        <div class="agent-sprite sprite-it" id="agent-it" style="top:358px;left:195px;">
+            <div class="agent-status-dot idle"></div>
+            <div class="speech-bubble">Deploying...</div>
+            <div class="pixel-char">
+                <div class="hair"></div>
+                <div class="head"></div>
+                <div class="body"></div>
+                <div class="arm-l"></div>
+                <div class="arm-r"></div>
+                <div class="leg-l"></div>
+                <div class="leg-r"></div>
+            </div>
+            <div class="agent-label">IT</div>
+        </div>
+
+        <!-- ─── Discord Team Desk ──────────────────────── -->
+        <div class="desk" style="top:380px;left:570px;">
+            <div class="monitor">
+                <div class="monitor-screen active">
+                    <div class="scanlines"></div>
+                    <div class="screen-text">DISCORD<br>GROWTH</div>
+                </div>
+                <div class="monitor-stand"></div>
+            </div>
+            <div class="desk-surface"></div>
+            <div class="chair"></div>
+        </div>
+        <div class="agent-sprite sprite-discord" id="agent-discord" style="top:358px;left:595px;">
+            <div class="agent-status-dot idle"></div>
+            <div class="speech-bubble">Growing community</div>
+            <div class="pixel-char">
+                <div class="hair"></div>
+                <div class="head"></div>
+                <div class="body"></div>
+                <div class="arm-l"></div>
+                <div class="arm-r"></div>
+                <div class="leg-l"></div>
+                <div class="leg-r"></div>
+            </div>
+            <div class="agent-label">DISCORD</div>
+        </div>
+
+        <!-- ─── Decorations ───────────────────────────── -->
+        <!-- Plants -->
+        <div class="plant" style="top:100px;left:80px;">
+            <div class="plant-leaves"></div>
+            <div class="plant-pot"></div>
+        </div>
+        <div class="plant" style="top:100px;left:720px;">
+            <div class="plant-leaves"></div>
+            <div class="plant-pot"></div>
+        </div>
+        <div class="plant" style="top:350px;left:80px;">
+            <div class="plant-leaves"></div>
+            <div class="plant-pot"></div>
+        </div>
+
+        <!-- Water Cooler -->
+        <div class="water-cooler" style="top:300px;left:730px;">
+            <div class="cooler-tank"></div>
+            <div class="cooler-body"></div>
+        </div>
+
+        <!-- Coffee Machine -->
+        <div class="coffee-machine" style="top:310px;left:80px;">
+            <div class="machine-top"></div>
+            <div class="machine-body"></div>
+            <div class="coffee-cup"></div>
+            <div class="steam">
+                <div class="steam-line"></div>
+                <div class="steam-line"></div>
+                <div class="steam-line"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ─── Bottom Panel ───────────────────────────────── -->
+    <div id="bottom-panel">
+
+        <!-- Agent Detail -->
+        <div class="panel-section">
+            <div class="panel-title">👤 AGENT DETAIL</div>
+
+            {% for agent_id, agent_data in [
+                ("ceo", {"role": "Chief Executive Officer", "desc": "Strategy & Vision"}),
+                ("cto", {"role": "Chief Technology Officer", "desc": "Tech & GitHub"}),
+                ("cmo", {"role": "Chief Marketing Officer", "desc": "Marketing Strategy"}),
+                ("cxo", {"role": "Chief Experience Officer", "desc": "UX & Community"}),
+                ("marketing", {"role": "Marketing Team", "desc": "Content & Social"}),
+                ("sales", {"role": "Sales Team", "desc": "Outreach & BD"}),
+                ("hr", {"role": "HR Manager", "desc": "Team Monitoring"}),
+                ("it", {"role": "IT Team", "desc": "Infrastructure & DevOps"}),
+                ("discord", {"role": "Discord Team", "desc": "Community Growth"})
+            ] %}
+            <div class="agent-detail" id="detail-{{ agent_id }}">
+                <div class="agent-info">
+                    <strong>{{ agent_data.role }}</strong><br>
+                    {{ agent_data.desc }}<br><br>
+                    <strong>Memory:</strong>
+                    <div id="memory-content" style="max-height:80px;overflow-y:auto;margin-top:4px;">
+                        <em style="color:#666">Select agent to view</em>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Task Log -->
+        <div class="panel-section">
+            <div class="panel-title">📋 TASK LOG</div>
+            <ul class="task-list" id="task-list">
+                <li class="task-item"><span class="task-status pending"></span> Waiting for first cycle...</li>
+            </ul>
+        </div>
+
+        <!-- Messages + Director Input -->
+        <div class="panel-section">
+            <div class="panel-title">💬 MESSAGES</div>
+            <div class="msg-feed" id="msg-feed">
+                <div class="msg-item" style="color:#666"><em>Messages will appear here...</em></div>
+            </div>
+            <div class="director-input">
+                <select id="director-to">
+                    <option value="ceo">CEO</option>
+                    <option value="cto">CTO</option>
+                    <option value="cmo">CMO</option>
+                    <option value="cxo">CXO</option>
+                    <option value="marketing">MKTG</option>
+                    <option value="sales">SALES</option>
+                    <option value="hr">HR</option>
+                    <option value="it">IT</option>
+                    <option value="discord">DISCORD</option>
+                    <option value="all">ALL</option>
+                </select>
+                <input type="text" id="director-msg" placeholder="Director message...">
+                <button class="btn primary" onclick="sendDirectorMessage()">SEND</button>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+<!-- Toast notifications -->
+<div id="toast-container"></div>
+
+<script src="/static/js/app.js"></script>
+</body>
+</html>
